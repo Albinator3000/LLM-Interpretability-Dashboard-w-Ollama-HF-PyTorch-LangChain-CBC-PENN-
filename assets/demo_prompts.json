@@ -1,0 +1,20 @@
+{
+  "token_analysis": [
+    "The capital of France is",
+    "To be or not to",
+    "import numpy as",
+    "Once upon a time",
+    "The meaning of life is"
+  ],
+  "attention": [
+    "The cat sat on the mat. It was sleeping.",
+    "Paris is the capital of France. The city is beautiful.",
+    "I love pizza because it tastes great."
+  ],
+  "agent_tasks": [
+    "Calculate 15 * 23 + 7",
+    "Count the words in: 'The quick brown fox jumps over the lazy dog'",
+    "What is 100 divided by 4, then multiply by 3?",
+    "Reverse the text: 'Hello World'"
+  ]
+}
