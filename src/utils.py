@@ -25,10 +25,10 @@ def load_prompts() -> Dict[str, List[str]]:
         ]
     }
     prompts_path = Path("assets/demo_prompts.json")
-    if not prompts_path.exists():
-        with open(prompts_file, 'r') as f:
+    if prompts_path.exists():
+        with open(prompts_path, 'r') as f:
             return json.load(f)
-    
+
     return default_prompts
 
 def save_demo_prompts(prompts: Dict[str, List[str]]):

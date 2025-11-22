@@ -1,163 +1,173 @@
-from langchain_community.llms import Ollama
-from langchain.agents import AgentExecutor, create_react_agent
-from lanchain.tools import Tool
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain import hub
+"""
+Agent Tracer - Track LLM agent reasoning with Ollama
+"""
+
+import ollama
 from typing import List, Dict, Any
 import time
 
-class TracingCallback(BaseCallbackHandler):
-    """Track agent decisions"""
-    
-    def __init__(self):
-        self.steps = []
-        self.current_step = {}
-    
-    def on_agent_action(self, action, **kwargs):
-        """Called when agent acts"""
-        self.current_step = {
-            'type': 'action',
-            'tool': action.tool,
-            'tool_input': action.tool_input,
-            'log': action.log,
-            'timestamp': time.time()
-        }
-        self.steps.append(self.current_step.copy())
-    
-    def on_tool_end(self, output, **kwargs):
-        """Called when tool finishes"""
-        self.steps.append({
-            'type': 'observation',
-            'output': str(output),
-            'timestamp': time.time()
-        })
-    
-    def on_agent_finish(self, finish, **kwargs):
-        """Called when agent finishes"""
-        self.steps.append({
-            'type': 'finish',
-            'output': finish.return_values,
-            'timestamp': time.time()
-        })
-    
-    def clear(self):
-        """Reset trace"""
-        self.steps = []
-
 
 class AgentTracer:
-    """Trace agent reasoning"""
-    
+    """Simple agent tracer using Ollama directly"""
+
     def __init__(self, model_name: str = "llama3.2:3b"):
         self.model_name = model_name
-        self.llm = Ollama(model=model_name, temperature=0.7)
         self.tools = self._create_tools()
-        self.callback = TracingCallback()
-    
-    def _create_tools(self) -> List[Tool]:
-        """Create tools"""
-        
+
+    def _create_tools(self) -> Dict[str, callable]:
+        """Create available tools"""
+
         def calculator(expression: str) -> str:
             try:
-                result = eval(expression, {"__builtins__": {}}, {})
+                # Safe eval for basic math
+                allowed = {
+                    '__builtins__': {},
+                    'abs': abs, 'round': round,
+                    'min': min, 'max': max,
+                    'sum': sum, 'pow': pow
+                }
+                result = eval(expression, allowed, {})
                 return f"Result: {result}"
             except Exception as e:
                 return f"Error: {str(e)}"
-        
+
         def word_counter(text: str) -> str:
             count = len(text.split())
             return f"Word count: {count}"
-        
+
         def reverse_text(text: str) -> str:
-            return text[::-1]
-        
+            return f"Reversed: {text[::-1]}"
+
         def length_calculator(text: str) -> str:
             return f"Length: {len(text)} characters"
-        
-        return [
-            Tool(
-                name="Calculator",
-                func=calculator,
-                description="Useful for math. Input: valid Python expression like '5 * 3 + 2'"
-            ),
-            Tool(
-                name="WordCounter",
-                func=word_counter,
-                description="Counts words. Input: text to count"
-            ),
-            Tool(
-                name="ReverseText",
-                func=reverse_text,
-                description="Reverses text. Input: text to reverse"
-            ),
-            Tool(
-                name="LengthCalculator",
-                func=length_calculator,
-                description="Calculates length. Input: text"
-            )
-        ]
-    
+
+        return {
+            "calculator": calculator,
+            "word_counter": word_counter,
+            "reverse_text": reverse_text,
+            "length_calculator": length_calculator
+        }
+
     def run_agent(self, task: str) -> Dict[str, Any]:
-        """Run agent and return trace"""
-        
-        self.callback.clear()
-        
-        # Get prompt
-        prompt = hub.pull("hwchase17/react")
-        
-        # Create agent
-        agent = create_react_agent(self.llm, self.tools, prompt)
-        agent_executor = AgentExecutor(
-            agent=agent,
-            tools=self.tools,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=5
-        )
-        
-        # Run
+        """Run agent with simple ReAct-style reasoning"""
+
+        steps = []
+
+        system_prompt = """You are a helpful assistant that solves tasks step by step.
+
+Available tools:
+- calculator: Evaluate math expressions (e.g., "15 * 23 + 7")
+- word_counter: Count words in text
+- reverse_text: Reverse a string
+- length_calculator: Get character count
+
+For each step, respond in this format:
+Thought: [your reasoning]
+Action: [tool_name]
+Input: [input for the tool]
+
+When you have the final answer:
+Thought: [final reasoning]
+Final Answer: [your answer]
+
+Be concise."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": task}
+        ]
+
         try:
-            result = agent_executor.invoke(
-                {"input": task},
-                {"callbacks": [self.callback]}
-            )
-            
+            max_iterations = 5
+
+            for i in range(max_iterations):
+                # Get model response
+                response = ollama.chat(
+                    model=self.model_name,
+                    messages=messages
+                )
+
+                content = response['message']['content']
+                steps.append({
+                    'type': 'reasoning',
+                    'content': content,
+                    'timestamp': time.time()
+                })
+
+                # Check for final answer
+                if "Final Answer:" in content:
+                    final_answer = content.split("Final Answer:")[-1].strip()
+                    return {
+                        'success': True,
+                        'output': final_answer,
+                        'steps': steps
+                    }
+
+                # Parse action and input
+                if "Action:" in content and "Input:" in content:
+                    try:
+                        action_line = [l for l in content.split('\n') if 'Action:' in l][0]
+                        input_line = [l for l in content.split('\n') if 'Input:' in l][0]
+
+                        action = action_line.split('Action:')[-1].strip().lower()
+                        tool_input = input_line.split('Input:')[-1].strip()
+
+                        # Execute tool
+                        if action in self.tools:
+                            result = self.tools[action](tool_input)
+                            steps.append({
+                                'type': 'observation',
+                                'tool': action,
+                                'input': tool_input,
+                                'output': result,
+                                'timestamp': time.time()
+                            })
+
+                            # Add observation to messages
+                            messages.append({"role": "assistant", "content": content})
+                            messages.append({"role": "user", "content": f"Observation: {result}"})
+                        else:
+                            messages.append({"role": "assistant", "content": content})
+                            messages.append({"role": "user", "content": f"Error: Unknown tool '{action}'. Available: calculator, word_counter, reverse_text, length_calculator"})
+                    except Exception as e:
+                        messages.append({"role": "assistant", "content": content})
+                        messages.append({"role": "user", "content": f"Error parsing action: {e}. Please use the correct format."})
+                else:
+                    # No action found, ask to continue
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({"role": "user", "content": "Please continue with an Action or provide your Final Answer."})
+
             return {
                 'success': True,
-                'output': result.get('output', 'No output'),
-                'steps': self.callback.steps
+                'output': "Max iterations reached. Last response: " + content,
+                'steps': steps
             }
+
         except Exception as e:
             return {
                 'success': False,
                 'error': str(e),
-                'steps': self.callback.steps
+                'steps': steps
             }
-    
+
     def format_trace_for_display(self, steps: List[Dict]) -> List[Dict]:
-        """Format for Streamlit"""
+        """Format steps for Streamlit display"""
         formatted = []
-        
+
         for i, step in enumerate(steps):
-            if step['type'] == 'action':
+            if step['type'] == 'reasoning':
                 formatted.append({
                     'step_num': i + 1,
-                    'type': '🤔 Reasoning',
-                    'content': step['log'],
-                    'tool': step['tool'],
-                    'input': step['tool_input']
+                    'type': 'Reasoning',
+                    'content': step['content'],
+                    'tool': '',
+                    'input': ''
                 })
             elif step['type'] == 'observation':
                 formatted.append({
                     'step_num': i + 1,
-                    'type': '👁️ Observation',
-                    'content': step['output']
+                    'type': 'Observation',
+                    'content': f"Tool: {step['tool']}\nInput: {step['input']}\nOutput: {step['output']}"
                 })
-            elif step['type'] == 'finish':
-                formatted.append({
-                    'step_num': i + 1,
-                    'type': '✅ Final Answer',
-                    'content': step['output']
-                })
-        
+
         return formatted
