@@ -213,6 +213,14 @@ with st.sidebar:
     st.markdown("**Anthropic AI**")
     st.markdown("**Penn Claude Builder Club**")
 
+    st.markdown("---")
+    st.markdown("**Albert W. Opher, IV**")
+    st.markdown(
+        "[Email](mailto:albert.w.opher.iv@gmail.com) | "
+        "[LinkedIn](https://www.linkedin.com/in/albertopher/) | "
+        "[Portfolio](https://sites.google.com/view/albert-opher-2025/home-resume)"
+    )
+
 # Header
 st.title("LLM Interpretability Dashboard")
 st.caption(
@@ -557,8 +565,14 @@ else:
 # Footer
 st.markdown("---")
 st.markdown(
-    "<div style='text-align: center; color: #666;'>"
-    "Penn Claude Builder Club | PyTorch | HuggingFace | Ollama"
+    "<div style='text-align: center;'>"
+    "<p style='color: #888; margin-bottom: 8px;'>Penn Claude Builder Club | PyTorch | HuggingFace | Ollama</p>"
+    "<p style='margin-bottom: 4px;'><strong>Albert W. Opher, IV</strong></p>"
+    "<p>"
+    "<a href='mailto:albert.w.opher.iv@gmail.com' style='margin: 0 10px;'>Email</a> | "
+    "<a href='https://www.linkedin.com/in/albertopher/' target='_blank' style='margin: 0 10px;'>LinkedIn</a> | "
+    "<a href='https://sites.google.com/view/albert-opher-2025/home-resume' target='_blank' style='margin: 0 10px;'>Portfolio</a>"
+    "</p>"
     "</div>",
     unsafe_allow_html=True
 )
