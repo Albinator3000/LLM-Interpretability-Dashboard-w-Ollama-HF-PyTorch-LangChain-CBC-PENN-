@@ -19,7 +19,7 @@ import io
 
 # Page config
 st.set_page_config(
-    page_title="LLM Interpretability Dashboard using Local Inference)",
+    page_title="LLM Interpretability Dashboard)",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -222,7 +222,7 @@ with st.sidebar:
     )
 
 # Header
-st.title("LLM Interpretability Dashboard")
+st.title("LLM Interpretability Dashboard using Local Inference")
 st.caption(
     "Developed as a live demonstration for the Penn Claude Builder Club (50+ attendees) "
     "showcasing ML interpretability techniques. Built with PyTorch, HuggingFace Transformers, "
