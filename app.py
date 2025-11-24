@@ -19,7 +19,7 @@ import io
 
 # Page config
 st.set_page_config(
-    page_title="LLM Interpretability Dashboard",
+    page_title="LLM Interpretability Dashboard using Local Inference)",
     layout="wide",
     initial_sidebar_state="expanded"
 )
